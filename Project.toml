@@ -1,0 +1,13 @@
+name = "ApproximateDPs"
+uuid = "d0a8766f-bb8b-4b42-88a5-2528af0776c4"
+authors = ["Hanna Lee <dlgkssk707@gmail.com> and contributors"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
