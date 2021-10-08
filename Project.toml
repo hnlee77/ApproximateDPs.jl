@@ -4,6 +4,7 @@ authors = ["Hanna Lee <dlgkssk707@gmail.com> and contributors"]
 version = "0.1.0"
 
 [compat]
+ComponentArrays = "0.11"
 julia = "1"
 
 [extras]
