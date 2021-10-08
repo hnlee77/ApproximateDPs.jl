@@ -4,6 +4,7 @@ authors = ["Hanna Lee <dlgkssk707@gmail.com> and contributors"]
 version = "0.1.0"
 
 [compat]
+DynamicPolynomials = "0.3"
 UnPack = "1"
 JLD2 = "0.4"
 ComponentArrays = "0.11"
