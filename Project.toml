@@ -4,6 +4,7 @@ authors = ["Hanna Lee <dlgkssk707@gmail.com> and contributors"]
 version = "0.1.0"
 
 [compat]
+Transducers = "0.4"
 DifferentialEquations = "6"
 FSimZoo = "0.3"
 FileIO = "1"
