@@ -4,6 +4,7 @@ authors = ["Hanna Lee <dlgkssk707@gmail.com> and contributors"]
 version = "0.1.0"
 
 [compat]
+Combinatorics = "1"
 NLopt = "0.6"
 Transducers = "0.4"
 DifferentialEquations = "6"
