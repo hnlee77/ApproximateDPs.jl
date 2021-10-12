@@ -21,11 +21,6 @@ function initialise()
 end
 
 function train!(env, irl; Δt=0.01, tf=3.0, w_tol=1e-3)
-    stop_conds = function(w_diff_norm)
-        stop_conds_dict = Dict(
-                               :w_tol => w_diff_norm < w_tol,
-                              )
-    end
     @unpack A, B = env
     args_linearsystem = (A, B)
     linearsystem, integ = FSimZoo.LinearSystem_SingleIntegrator(args_linearsystem)  # integrated system with scalar integrator ∫r
@@ -34,7 +29,7 @@ function train!(env, irl; Δt=0.01, tf=3.0, w_tol=1e-3)
     û = ADP.ApproximateOptimalInput(irl, B)
     _û = (X, p, t) -> û(X.x, p, t)  # for integrated system
 
-    cb_train = ADP.update_params_callback(irl, tf, stop_conds)
+    cb_train = ADP.update_params_callback(irl, w_tol)
     cb = CallbackSet(cb_train)
     running_cost = ADP.RunningCost(irl)
     prob, df = sim(
