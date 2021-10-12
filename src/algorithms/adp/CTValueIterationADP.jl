@@ -23,7 +23,7 @@ mutable struct CTValueIterationADP
     V̂::LinearApproximator
     dV̂::LinearApproximator
     data
-    ΣΦᵀΦ_iv
+    ΣΦᵀΦ_inv
     Θ
     running_cost::Function
     u_norm_max::Real
@@ -51,8 +51,10 @@ j = 0, 1, ..., M-1
 function set_data!(adp::CTValueIterationADP, data_new)
     adp.data = data_new  # write over
     ts = adp.data.time  # length: M+1
-    xs = adp.data.state  # length: M+1
-    us = adp.data.input  # length: M+1
+    # xs = adp.data.state  # length: M+1
+    # us = adp.data.input  # length: M+1
+    xs = adp.data.sol |> Map(datum -> datum.state) |> collect
+    us = adp.data.sol |> Map(datum -> datum.input) |> collect
     x_js = xs[1:end-1]  # length: M
     # ΣΦᵀΦ_inv (Eq. 16)
     Φs = xs |> Map(Φ(adp)) |> collect  # length: M+1
@@ -60,9 +62,12 @@ function set_data!(adp::CTValueIterationADP, data_new)
     adp.ΣΦᵀΦ_inv = Φ_js |> Map(Φ -> Φ' * Φ) |> collect |> sum |> inv
     # Θ (Eq. 12)
     Θ_js = nothing
-    if isdefined(adp.data, :∫Ψs)
+    # if isdefined(adp.data, :∫Ψs)
         # exact integration
-        Θ_js = diff(adp.data.∫Ψs)
+        # Θ_js = diff(adp.data.∫Ψs)
+    if isdefined(adp.data.sol, :∫Ψs) # TODO
+        ∫Ψs = adp.data.sol |> Map(datum -> datum.∫Ψ) |> collect
+        Θ_js = diff(∫Ψs)
     else
         # numerical integration
         t_intervals = ts |> Partition(2; step=1) |> Map(copy) |> collect
@@ -106,7 +111,8 @@ end
 
 function update!(adp::CTValueIterationADP, lr)
     @unpack m, ΣΦᵀΦ_inv, data, Θ = adp
-    xs = data.state
+    # xs = data.state
+    xs = adp.data.sol |> Map(datum -> datum.state) |> collect
     term2 = xs |> Map(x -> Φ(adp)(x)' * min_Ĥ(adp)(x, Θ*adp.V̂.param)[1]) |> collect |> sum
     adp.V̂.param += lr * ΣΦᵀΦ_inv * term2
     nothing

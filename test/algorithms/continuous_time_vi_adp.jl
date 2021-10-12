@@ -34,8 +34,18 @@ function explore(dir_log, env, adp, u_explorer;
     x0 = State(env)(-2.9, -2.9)  # the setting in the paper
     if exact_integration
         X0 = ComponentArray(x=x0, ∫Ψ=zeros(1, adp.N_Ψ))  # append system, 1 x N
+        # appended_dynamics! = function (env::TwoDimensionalNonlinearPolynomialSystem)
+        #     return function (dX, X, p, t; u)
+        #         Dynamics!(env)(dX.x, X.x, (), t; u=u)
+        #         dX.∫Ψ = ADP.Ψ(adp)(dX.x, u)
+        #     end
+        # end
         appended_dynamics! = function (env::TwoDimensionalNonlinearPolynomialSystem)
-            return function (dX, X, p, t; u)
+            @Loggable function dynamics!(dX, X, p, t; u)
+                @unpack x, ∫Ψ = X
+                @log state = x
+                @log ∫Ψ = ∫Ψ
+                @log input = u
                 Dynamics!(env)(dX.x, X.x, (), t; u=u)
                 dX.∫Ψ = ADP.Ψ(adp)(dX.x, u)
             end
@@ -48,22 +58,25 @@ function explore(dir_log, env, adp, u_explorer;
     end
     # FileIO.save(file_path, Dict("env" => env, "prob" => prob, "sol" => sol))
     FileIO.save(file_path, Dict("env" => env, "prob" => prob, "sol" => df.sol))
-    # if exact_integration
-    #     appended_process = function (env::TwoDimensionalNonlinearPolynomialSystem)
-    #         return function (prob::ODEProblem, sol::ODESolution; Δt)
-    #             t0, tf = prob.tspan
-    #             ts = t0:Δt:tf
-    #             Xs = ts |> Map(t -> sol(t)) |> collect
-    #             xs = Xs |> Map(X -> X.x) |> collect
-    #             ∫Ψs = Xs |> Map(X -> X.∫Ψ) |> collect
-    #             DataFrame(time=ts, state=xs, ∫Ψs=∫Ψs)
-    #         end
-    #     end
-    #     df = appended_process(env)(prob, sol; Δt=Δt)
+    if exact_integration
+        # appended_process = function (env::TwoDimensionalNonlinearPolynomialSystem)
+        #     return function (prob::ODEProblem, sol::ODESolution; Δt)
+        #         t0, tf = prob.tspan
+        #         ts = t0:Δt:tf
+        #         Xs = ts |> Map(t -> sol(t)) |> collect
+        #         xs = Xs |> Map(X -> X.x) |> collect
+        #         ∫Ψs = Xs |> Map(X -> X.∫Ψ) |> collect
+        #         DataFrame(time=ts, state=xs, ∫Ψs=∫Ψs)
+        #     end
+        # end
+        # df = appended_process(env)(prob, sol; Δt=Δt)
+        ∫Ψs = df.sol |> Map(datum -> datum.∫Ψ) |> collect
     # else
-    #     df = Process(env)(prob, sol; Δt=Δt)
-    # end
-    df.input = zip(df.time, df.state) |> MapSplat((t, x) -> u_explorer(x, (), t)) |> collect
+        # df = Process(env)(prob, sol; Δt=Δt)
+    end
+    ts = df.time
+    xs = df.sol |> Map(datum -> datum.state) |> collect
+    us = df.sol |> Map(datum -> datum.input) |> collect
     df
 end
 
@@ -101,15 +114,16 @@ end
 
 function demonstrate(env, adp; Δt=0.01, tf=10.0)
     x0 = State(env)(-2.9, -2.9)
+    # prob, sol = sim(x0, apply_inputs(Dynamics!(env); u=approximate_optimal_input(adp)); tf=tf)
+    # df = Process(env)(prob, sol; Δt=Δt)
     prob, df = sim(
                    x0,
-                   apply_inputs(Dynamics!(env); u=approximate_optimal_input(adp));
+                   apply_inputs(Dynamics!(env); u=ADP.approximate_optimal_input(adp));
                    tf=tf,
                    savestep=Δt
                   )
-    # prob, sol = sim(x0, apply_inputs(Dynamics!(env); u=approximate_optimal_input(adp)); tf=tf)
-    # df = Process(env)(prob, sol; Δt=Δt)
-    plot(df.time, hcat(df.state...)')
+    xs = df.sol |> Map(datum -> datum.state) |> collect
+    plot(df.time, hcat(xs...)')
 end
 
 """

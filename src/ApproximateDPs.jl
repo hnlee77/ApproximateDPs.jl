@@ -9,9 +9,10 @@ using ComponentArrays, UnPack
 using JLD2, FileIO, DataFrames
 using DynamicPolynomials: @polyvar, PolyVar, AbstractPolynomialLike
 using Combinatorics: multiexponents
-using Transducers: Map
+using Transducers
 using LinearAlgebra
 using NLopt
+using NumericalIntegration: integrate
 
 ## algorithms
 # adp
