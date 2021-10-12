@@ -2,7 +2,7 @@ module ApproximateDPs
 
 import FSimZoo: SingleIntegrator
 using FSimZoo
-using FSimBase # included in FSimZoo?
+using FSimBase
 
 using DifferentialEquations
 using ComponentArrays, UnPack
@@ -21,12 +21,11 @@ export CTLinearValueIterationIRL
 ## utils
 export AbstractApproximator, LinearApproximator
 export PolynomialBasis
-## environments
-# integrated environments
-export LinearSystem_SingleIntegrator
+# ## environments
+# # integrated environments
 
 include("utils/utils.jl")
 include("algorithms/algorithms.jl")
-include("environments/environments.jl")
+# include("environments/environments.jl")
 
 end

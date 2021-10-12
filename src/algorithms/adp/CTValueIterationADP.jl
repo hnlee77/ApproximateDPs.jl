@@ -12,6 +12,9 @@ V̂ ∈ R: the estimate of (state) value function
 dV̂ ∈ R: the estimate of time derivative of (state) value function
     - dV̂.basis: Ψ
     - V̂.param: c (BE CAREFUL; not used)
+n: state dim.
+m: input dim.
+d: polynomial degree
 """
 mutable struct CTValueIterationADP
     n::Int
@@ -24,26 +27,21 @@ mutable struct CTValueIterationADP
     Θ
     running_cost::Function
     u_norm_max::Real
+    function CTValueIterationADP(n::Int, m::Int, running_cost, u_norm_max,
+                                 d_value::Int=2, d_controller::Int=4;
+                                 V̂=LinearApproximator(:tao_bian_nonlinear_VI_V̂),
+                                 dV̂=LinearApproximator(:tao_bian_nonlinear_VI_dV̂),
+                                )
+        @assert u_norm_max > 0.0
+        # TODO: test with changing the function approximator, e.g., basis.
+        data = DataFrame()
+        ΣΦᵀΦ_inv = nothing
+        Θ = nothing
+        N_Ψ = length(dV̂.basis(rand(n+m)))
+        new(n, m, N_Ψ, V̂, dV̂, data, ΣΦᵀΦ_inv, Θ, running_cost, u_norm_max)
+    end
 end
 
-"""
-n: state dim.
-m: input dim.
-d: polynomial degree
-"""
-function CTValueIterationADP(n::Int, m::Int, running_cost, u_norm_max,
-        d_value::Int=2, d_controller::Int=4;
-        V̂=LinearApproximator(:tao_bian_nonlinear_VI_V̂),
-        dV̂=LinearApproximator(:tao_bian_nonlinear_VI_dV̂),
-    )
-    @assert u_norm_max > 0.0
-    # TODO: test with changing the function approximator, e.g., basis.
-    data = DataFrame()
-    ΣΦᵀΦ_inv = nothing
-    Θ = nothing
-    N_Ψ = length(dV̂.basis(rand(n+m)))
-    CTValueIterationADP(n, m, N_Ψ, V̂, dV̂, data, ΣΦᵀΦ_inv, Θ, running_cost, u_norm_max)
-end
 
 """
 # Notes

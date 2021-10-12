@@ -7,6 +7,7 @@ using Plots
 using Random, LinearAlgebra, ComponentArrays
 using DynamicPolynomials, UnPack
 using DifferentialEquations, DataFrames
+using FileIO
 
 
 function initialise()
@@ -39,26 +40,29 @@ function explore(dir_log, env, adp, u_explorer;
                 dX.∫Ψ = ADP.Ψ(adp)(dX.x, u)
             end
         end
-        prob, sol = sim(X0, apply_inputs(appended_dynamics!(env); u=u_explorer); tf=tf)
+        # prob, sol = sim(X0, apply_inputs(appended_dynamics!(env); u=u_explorer); tf=tf)
+        prob, df = sim(X0, apply_inputs(appended_dynamics!(env); u=u_explorer); tf=tf)
     else
-        prob, sol = sim(x0, apply_inputs(Dynamics!(env); u=u_explorer); tf=tf)
+        # prob, sol = sim(x0, apply_inputs(Dynamics!(env); u=u_explorer); tf=tf)
+        prob, df = sim(x0, apply_inputs(Dynamics!(env); u=u_explorer); tf=tf)
     end
-    FS.save(file_path, env, prob, sol)
-    if exact_integration
-        appended_process = function (env::TwoDimensionalNonlinearPolynomialSystem)
-            return function (prob::ODEProblem, sol::ODESolution; Δt)
-                t0, tf = prob.tspan
-                ts = t0:Δt:tf
-                Xs = ts |> Map(t -> sol(t)) |> collect
-                xs = Xs |> Map(X -> X.x) |> collect
-                ∫Ψs = Xs |> Map(X -> X.∫Ψ) |> collect
-                DataFrame(time=ts, state=xs, ∫Ψs=∫Ψs)
-            end
-        end
-        df = appended_process(env)(prob, sol; Δt=Δt)
-    else
-        df = Process(env)(prob, sol; Δt=Δt)
-    end
+    # FileIO.save(file_path, Dict("env" => env, "prob" => prob, "sol" => sol))
+    FileIO.save(file_path, Dict("env" => env, "prob" => prob, "sol" => df.sol))
+    # if exact_integration
+    #     appended_process = function (env::TwoDimensionalNonlinearPolynomialSystem)
+    #         return function (prob::ODEProblem, sol::ODESolution; Δt)
+    #             t0, tf = prob.tspan
+    #             ts = t0:Δt:tf
+    #             Xs = ts |> Map(t -> sol(t)) |> collect
+    #             xs = Xs |> Map(X -> X.x) |> collect
+    #             ∫Ψs = Xs |> Map(X -> X.∫Ψ) |> collect
+    #             DataFrame(time=ts, state=xs, ∫Ψs=∫Ψs)
+    #         end
+    #     end
+    #     df = appended_process(env)(prob, sol; Δt=Δt)
+    # else
+    #     df = Process(env)(prob, sol; Δt=Δt)
+    # end
     df.input = zip(df.time, df.state) |> MapSplat((t, x) -> u_explorer(x, (), t)) |> collect
     df
 end
@@ -97,11 +101,16 @@ end
 
 function demonstrate(env, adp; Δt=0.01, tf=10.0)
     x0 = State(env)(-2.9, -2.9)
-    prob, sol = sim(x0, apply_inputs(Dynamics!(env); u=approximate_optimal_input(adp)); tf=tf)
-    df = Process(env)(prob, sol; Δt=Δt)
+    prob, df = sim(
+                   x0,
+                   apply_inputs(Dynamics!(env); u=approximate_optimal_input(adp));
+                   tf=tf,
+                   savestep=Δt
+                  )
+    # prob, sol = sim(x0, apply_inputs(Dynamics!(env); u=approximate_optimal_input(adp)); tf=tf)
+    # df = Process(env)(prob, sol; Δt=Δt)
     plot(df.time, hcat(df.state...)')
 end
-
 
 """
 Main codes for demonstration of continuous-time value-iteration adaptive dynamic programming (CT-VI-ADP) [1].

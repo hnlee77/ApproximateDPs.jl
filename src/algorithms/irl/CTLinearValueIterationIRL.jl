@@ -22,13 +22,6 @@ mutable struct CTLinearValueIterationIRL
     end
 end
 
-# function CTLinearValueIterationIRL(Q, R,
-#         T=0.04, N=3, d_value::Int=2, d_controller::Int=4;
-#         V̂=LinearApproximator(2, 2; with_bias=false),
-#     )
-#     @assert T > 0
-#     CTLinearValueIterationIRL(Q, R, V̂, T, N)
-# end
 
 function RunningCost(irl::CTLinearValueIterationIRL)
     @unpack Q, R = irl

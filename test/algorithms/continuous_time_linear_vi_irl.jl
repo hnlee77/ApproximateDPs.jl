@@ -28,7 +28,7 @@ function train!(env, irl; Δt=0.01, tf=3.0, w_tol=1e-3)
     end
     @unpack A, B = env
     args_linearsystem = (A, B)
-    linearsystem, integ = LinearSystem_SingleIntegrator(args_linearsystem)  # integrated system with scalar integrator ∫r
+    linearsystem, integ = FSimZoo.LinearSystem_SingleIntegrator(args_linearsystem)  # integrated system with scalar integrator ∫r
     x0 = State(linearsystem, integ)([0.4, 4.0])
     irl.V̂.param = zeros(size(irl.V̂.param))  # zero initialisation
     û = ADP.ApproximateOptimalInput(irl, B)
@@ -45,9 +45,9 @@ function train!(env, irl; Δt=0.01, tf=3.0, w_tol=1e-3)
                    savestep=Δt
                   )
     ts = df.time
-    xs = df.sol |> Map(datum -> datum.x) |> collect
+    xs = df.sol |> Map(datum -> datum.linearsystem.state) |> collect
     plot(ts, hcat(xs...)')
-    # ∫rs = df.sol |> Map(X -> X.∫r) |> collect
+    # ∫rs = df.sol |> Map(datum -> datum.integ.integral) |> collect
     # plot(hcat(∫rs...)')
 end
 
