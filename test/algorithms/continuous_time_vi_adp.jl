@@ -10,7 +10,7 @@ using DifferentialEquations, DataFrames
 using FileIO
 
 
-function initialise()
+function initialise(; exact_integration=false)
     # setting
     env = TwoDimensionalNonlinearPolynomialSystem()
     u_explorer = (x, p, t) -> sin(5*t)
@@ -20,26 +20,20 @@ function initialise()
     __u = u_explorer(__x, (), __t) 
     m = length(__u)
     u_norm_max = 5.0  # input constraint for numerical optimisation; TODO: can be deprecated
-    adp = CTValueIterationADP(n, m, FSimZoo.RunningCost(env), u_norm_max)
+    adp = CTValueIterationADP(n, m, FSimZoo.RunningCost(env), u_norm_max, exact_integration)
     env, u_explorer, adp
 end
 
 function explore(dir_log, env, adp, u_explorer;
         file_name="exploration.jld2",
-        exact_integration=true, Δt=0.003, tf=1.8,  # the ettings in the paper and implemented code by T. Bian
+        Δt=0.003, tf=1.8,  # the ettings in the paper and implemented code by T. Bian
     )
     file_path = joinpath(dir_log, file_name) 
     prob, sol = nothing, nothing
     df = nothing
     x0 = State(env)(-2.9, -2.9)  # the setting in the paper
-    if exact_integration
+    if adp.exact_integration
         X0 = ComponentArray(x=x0, ∫Ψ=zeros(1, adp.N_Ψ))  # append system, 1 x N
-        # appended_dynamics! = function (env::TwoDimensionalNonlinearPolynomialSystem)
-        #     return function (dX, X, p, t; u)
-        #         Dynamics!(env)(dX.x, X.x, (), t; u=u)
-        #         dX.∫Ψ = ADP.Ψ(adp)(dX.x, u)
-        #     end
-        # end
         appended_dynamics! = function (env::TwoDimensionalNonlinearPolynomialSystem)
             @Loggable function dynamics!(dX, X, p, t; u)
                 @unpack x, ∫Ψ = X
@@ -50,29 +44,23 @@ function explore(dir_log, env, adp, u_explorer;
                 dX.∫Ψ = ADP.Ψ(adp)(dX.x, u)
             end
         end
-        # prob, sol = sim(X0, apply_inputs(appended_dynamics!(env); u=u_explorer); tf=tf)
-        prob, df = sim(X0, apply_inputs(appended_dynamics!(env); u=u_explorer); tf=tf)
+        prob, df = sim(
+                       X0,
+                       apply_inputs(appended_dynamics!(env); u=u_explorer);
+                       tf=tf,
+                       savestep=Δt
+                      )
     else
-        # prob, sol = sim(x0, apply_inputs(Dynamics!(env); u=u_explorer); tf=tf)
-        prob, df = sim(x0, apply_inputs(Dynamics!(env); u=u_explorer); tf=tf)
+        prob, df = sim(
+                       x0,
+                       apply_inputs(Dynamics!(env); u=u_explorer);
+                       tf=tf,
+                       savestep=Δt
+                      )
     end
-    # FileIO.save(file_path, Dict("env" => env, "prob" => prob, "sol" => sol))
     FileIO.save(file_path, Dict("env" => env, "prob" => prob, "sol" => df.sol))
-    if exact_integration
-        # appended_process = function (env::TwoDimensionalNonlinearPolynomialSystem)
-        #     return function (prob::ODEProblem, sol::ODESolution; Δt)
-        #         t0, tf = prob.tspan
-        #         ts = t0:Δt:tf
-        #         Xs = ts |> Map(t -> sol(t)) |> collect
-        #         xs = Xs |> Map(X -> X.x) |> collect
-        #         ∫Ψs = Xs |> Map(X -> X.∫Ψ) |> collect
-        #         DataFrame(time=ts, state=xs, ∫Ψs=∫Ψs)
-        #     end
-        # end
-        # df = appended_process(env)(prob, sol; Δt=Δt)
+    if adp.exact_integration
         ∫Ψs = df.sol |> Map(datum -> datum.∫Ψ) |> collect
-    # else
-        # df = Process(env)(prob, sol; Δt=Δt)
     end
     ts = df.time
     xs = df.sol |> Map(datum -> datum.state) |> collect
@@ -114,8 +102,6 @@ end
 
 function demonstrate(env, adp; Δt=0.01, tf=10.0)
     x0 = State(env)(-2.9, -2.9)
-    # prob, sol = sim(x0, apply_inputs(Dynamics!(env); u=approximate_optimal_input(adp)); tf=tf)
-    # df = Process(env)(prob, sol; Δt=Δt)
     prob, df = sim(
                    x0,
                    apply_inputs(Dynamics!(env); u=ADP.approximate_optimal_input(adp));
@@ -139,9 +125,10 @@ if `false`, it is calculated by numerical integration (default setting may be tr
 """
 function main(; seed=1, dir_log="data/main/continuous_time_vi_adp")
     Random.seed!(seed)
-    env, u_explorer, adp = initialise()
+    env, u_explorer, adp = initialise(; exact_integration=true)
     df = explore(dir_log, env, adp, u_explorer;
-                 exact_integration=true, Δt=0.003)
+                 Δt=0.003)
+    # @show df.sol
     ADP.set_data!(adp, df)
     train!(adp;
            max_iter=100, w_tol=1e-2)

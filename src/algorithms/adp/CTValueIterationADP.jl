@@ -27,8 +27,9 @@ mutable struct CTValueIterationADP
     Θ
     running_cost::Function
     u_norm_max::Real
+    exact_integration::Bool
     function CTValueIterationADP(n::Int, m::Int, running_cost, u_norm_max,
-                                 d_value::Int=2, d_controller::Int=4;
+                                 exact_integration, d_value::Int=2, d_controller::Int=4;
                                  V̂=LinearApproximator(:tao_bian_nonlinear_VI_V̂),
                                  dV̂=LinearApproximator(:tao_bian_nonlinear_VI_dV̂),
                                 )
@@ -38,7 +39,7 @@ mutable struct CTValueIterationADP
         ΣΦᵀΦ_inv = nothing
         Θ = nothing
         N_Ψ = length(dV̂.basis(rand(n+m)))
-        new(n, m, N_Ψ, V̂, dV̂, data, ΣΦᵀΦ_inv, Θ, running_cost, u_norm_max)
+        new(n, m, N_Ψ, V̂, dV̂, data, ΣΦᵀΦ_inv, Θ, running_cost, u_norm_max, exact_integration)
     end
 end
 
@@ -51,10 +52,8 @@ j = 0, 1, ..., M-1
 function set_data!(adp::CTValueIterationADP, data_new)
     adp.data = data_new  # write over
     ts = adp.data.time  # length: M+1
-    # xs = adp.data.state  # length: M+1
-    # us = adp.data.input  # length: M+1
-    xs = adp.data.sol |> Map(datum -> datum.state) |> collect
-    us = adp.data.sol |> Map(datum -> datum.input) |> collect
+    xs = adp.data.sol |> Map(datum -> datum.state) |> collect  # length: M+1
+    us = adp.data.sol |> Map(datum -> datum.input) |> collect  # length: M+1
     x_js = xs[1:end-1]  # length: M
     # ΣΦᵀΦ_inv (Eq. 16)
     Φs = xs |> Map(Φ(adp)) |> collect  # length: M+1
@@ -62,11 +61,10 @@ function set_data!(adp::CTValueIterationADP, data_new)
     adp.ΣΦᵀΦ_inv = Φ_js |> Map(Φ -> Φ' * Φ) |> collect |> sum |> inv
     # Θ (Eq. 12)
     Θ_js = nothing
-    # if isdefined(adp.data, :∫Ψs)
-        # exact integration
-        # Θ_js = diff(adp.data.∫Ψs)
-    if isdefined(adp.data.sol, :∫Ψs) # TODO
+    # if adp.exact_integration
+    if 1 == 0  # TODO it makes the algorithm diverge
         ∫Ψs = adp.data.sol |> Map(datum -> datum.∫Ψ) |> collect
+        @show size(∫Ψs)
         Θ_js = diff(∫Ψs)
     else
         # numerical integration
@@ -111,7 +109,6 @@ end
 
 function update!(adp::CTValueIterationADP, lr)
     @unpack m, ΣΦᵀΦ_inv, data, Θ = adp
-    # xs = data.state
     xs = adp.data.sol |> Map(datum -> datum.state) |> collect
     term2 = xs |> Map(x -> Φ(adp)(x)' * min_Ĥ(adp)(x, Θ*adp.V̂.param)[1]) |> collect |> sum
     adp.V̂.param += lr * ΣΦᵀΦ_inv * term2
